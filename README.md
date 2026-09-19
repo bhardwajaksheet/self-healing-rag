@@ -40,6 +40,11 @@ Answer   Reformulate
              ↓
            Critic
 ```
+## 🏗️ System Architecture
+
+![Self-Healing RAG Architecture](assets/architecture.png)
+
+The system combines semantic retrieval, LLM generation, independent answer verification, and query reformulation into a controlled LangGraph workflow.
 
 ## 🧠 Key Features
 
