@@ -1,10 +1,70 @@
 import html
 import re
 import textwrap
+import os
 
 import streamlit as st
 
+from rag.loader import load_pdf
+from rag.chunker import split_documents
+from rag.vectorstore import create_vectorstore
+
 from graph.workflow import build_graph
+
+# ============================================================
+# VECTOR DATABASE INITIALIZATION
+# ============================================================
+
+PDF_PATH = "data/documents/college_rules_test.pdf"
+CHROMA_PATH = "chroma_db"
+
+
+@st.cache_resource
+def initialize_vector_database():
+    """
+    Create the ChromaDB vector database automatically when
+    deploying to an environment where it does not already exist.
+
+    Locally:
+        Existing ChromaDB is reused.
+
+    Streamlit Cloud:
+        ChromaDB is built from the PDF on first startup.
+    """
+
+    # Check whether ChromaDB already exists and contains data.
+    if os.path.isdir(CHROMA_PATH) and os.listdir(CHROMA_PATH):
+        return "existing"
+
+    # Make sure the knowledge-base PDF exists.
+    if not os.path.exists(PDF_PATH):
+        raise FileNotFoundError(
+            f"Knowledge-base PDF not found: {PDF_PATH}"
+        )
+
+    print("📄 Loading knowledge-base PDF...")
+
+    documents = load_pdf(PDF_PATH)
+
+    print(f"📄 Loaded {len(documents)} pages.")
+
+    print("✂️ Splitting document into chunks...")
+
+    chunks = split_documents(documents)
+
+    print(f"✂️ Created {len(chunks)} chunks.")
+
+    print("🧠 Building ChromaDB vector database...")
+
+    create_vectorstore(chunks)
+
+    print("✅ ChromaDB vector database created.")
+
+    return "created"
+
+
+# Initialize vector database before the RAG pipeline is used.
+initialize_vector_database()
 
 
 # ============================================================
