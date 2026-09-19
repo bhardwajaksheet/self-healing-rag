@@ -27,7 +27,6 @@ groq_client = Groq(
 # -----------------------------------
 
 def retrieve(state):
-
     print("\n🔎 RETRIEVING...")
 
     embeddings = get_embeddings()
@@ -37,9 +36,17 @@ def retrieve(state):
         embedding_function=embeddings
     )
 
-    question = state["question"]
+    question = state["question"].strip()
 
-    # Retrieve documents together with similarity scores
+    # Safety guard: never send an empty query
+    # to the embedding model.
+    if not question:
+        raise ValueError(
+            "Retrieval query is empty. "
+            "The system refused to send an empty query "
+            "to the embedding model."
+        )
+
     results = vectorstore.similarity_search_with_score(
         question,
         k=3
@@ -108,10 +115,9 @@ def evaluate(state):
 # -----------------------------------
 
 def reformulate(state):
-
     print("\n🔄 SELF-HEALING: REFORMULATING QUERY...")
 
-    question = state["question"]
+    question = state["question"].strip()
     critique = state["critique"]
 
     new_question_prompt = f"""
@@ -141,6 +147,7 @@ IMPORTANT:
 - Do not change the meaning of the original question.
 - Do not invent information.
 - Only improve the wording for retrieval.
+- The rewritten question MUST NOT be empty.
 
 Return ONLY the rewritten question.
 """
@@ -156,7 +163,30 @@ Return ONLY the rewritten question.
         temperature=0
     )
 
-    new_question = response.choices[0].message.content.strip()
+    new_question = (
+        response.choices[0].message.content or ""
+    ).strip()
+
+    # --------------------------------------------------------
+    # SAFETY GUARD
+    # Never allow an empty query to reach the embedding model.
+    # --------------------------------------------------------
+
+    if not new_question:
+        print(
+            "\n⚠️ Reformulation returned an empty query."
+        )
+
+        print(
+            "↩️ Falling back to the previous query."
+        )
+
+        new_question = question.strip()
+
+    if not new_question:
+        raise ValueError(
+            "Self-healing produced an empty retrieval query."
+        )
 
     print(f"\n🔄 New query: {new_question}")
 
